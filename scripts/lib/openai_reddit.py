@@ -8,9 +8,16 @@ from . import http
 
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 
+# Depth configurations: (min, max) threads to request
+DEPTH_CONFIG = {
+    "quick": (8, 12),
+    "default": (20, 30),
+    "deep": (50, 70),
+}
+
 REDDIT_SEARCH_PROMPT = """Search Reddit for discussions about: {topic}
 
-Focus on threads from the last 30 days. Find 15-30 high-quality, relevant threads.
+Focus on threads from the last 30 days. Find {min_items}-{max_items} high-quality, relevant threads.
 
 IMPORTANT: Return ONLY valid JSON in this exact format, no other text:
 {{
@@ -38,6 +45,7 @@ def search_reddit(
     api_key: str,
     model: str,
     topic: str,
+    depth: str = "default",
     mock_response: Optional[Dict] = None,
 ) -> Dict[str, Any]:
     """Search Reddit for relevant threads using OpenAI Responses API.
@@ -46,6 +54,7 @@ def search_reddit(
         api_key: OpenAI API key
         model: Model to use
         topic: Search topic
+        depth: Research depth - "quick", "default", or "deep"
         mock_response: Mock response for testing
 
     Returns:
@@ -54,10 +63,15 @@ def search_reddit(
     if mock_response is not None:
         return mock_response
 
+    min_items, max_items = DEPTH_CONFIG.get(depth, DEPTH_CONFIG["default"])
+
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
+
+    # Adjust timeout based on depth
+    timeout = 60 if depth == "quick" else 90 if depth == "default" else 120
 
     payload = {
         "model": model,
@@ -70,10 +84,10 @@ def search_reddit(
             }
         ],
         "include": ["web_search_call.action.sources"],
-        "input": REDDIT_SEARCH_PROMPT.format(topic=topic),
+        "input": REDDIT_SEARCH_PROMPT.format(topic=topic, min_items=min_items, max_items=max_items),
     }
 
-    return http.post(OPENAI_RESPONSES_URL, payload, headers=headers, timeout=60)
+    return http.post(OPENAI_RESPONSES_URL, payload, headers=headers, timeout=timeout)
 
 
 def parse_reddit_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:

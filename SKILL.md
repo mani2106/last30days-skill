@@ -84,7 +84,12 @@ echo "Please edit it to add your API keys, then run the skill again."
 
 ## Research Execution
 
-Run the research orchestrator with the TOPIC:
+Run the research orchestrator with the TOPIC.
+
+**Depth options** (passed through from user's command):
+- `--quick` → Faster, fewer sources (8-12 each)
+- (default) → Balanced (20-30 each)
+- `--deep` → Comprehensive (50-70 Reddit, 40-60 X)
 
 ```bash
 python3 ~/.claude/skills/last30days/scripts/last30days.py "$ARGUMENTS" --emit=compact 2>&1

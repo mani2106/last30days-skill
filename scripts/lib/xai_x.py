@@ -9,9 +9,16 @@ from . import http
 # xAI uses chat completions endpoint
 XAI_CHAT_URL = "https://api.x.ai/v1/chat/completions"
 
+# Depth configurations: (min, max) posts to request
+DEPTH_CONFIG = {
+    "quick": (8, 12),
+    "default": (20, 30),
+    "deep": (40, 60),
+}
+
 X_SEARCH_PROMPT = """You have access to real-time X (Twitter) data. Search for posts about: {topic}
 
-Focus on posts from {from_date} to {to_date}. Find 15-30 high-quality, relevant posts.
+Focus on posts from {from_date} to {to_date}. Find {min_items}-{max_items} high-quality, relevant posts.
 
 IMPORTANT: Return ONLY valid JSON in this exact format, no other text:
 {{
@@ -47,6 +54,7 @@ def search_x(
     topic: str,
     from_date: str,
     to_date: str,
+    depth: str = "default",
     mock_response: Optional[Dict] = None,
 ) -> Dict[str, Any]:
     """Search X for relevant posts using xAI API with live search.
@@ -57,6 +65,7 @@ def search_x(
         topic: Search topic
         from_date: Start date (YYYY-MM-DD)
         to_date: End date (YYYY-MM-DD)
+        depth: Research depth - "quick", "default", or "deep"
         mock_response: Mock response for testing
 
     Returns:
@@ -65,10 +74,15 @@ def search_x(
     if mock_response is not None:
         return mock_response
 
+    min_items, max_items = DEPTH_CONFIG.get(depth, DEPTH_CONFIG["default"])
+
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
+
+    # Adjust timeout based on depth
+    timeout = 60 if depth == "quick" else 90 if depth == "default" else 120
 
     # Use chat completions format with search enabled
     payload = {
@@ -84,6 +98,8 @@ def search_x(
                     topic=topic,
                     from_date=from_date,
                     to_date=to_date,
+                    min_items=min_items,
+                    max_items=max_items,
                 ),
             }
         ],
@@ -95,7 +111,7 @@ def search_x(
         },
     }
 
-    return http.post(XAI_CHAT_URL, payload, headers=headers, timeout=90)
+    return http.post(XAI_CHAT_URL, payload, headers=headers, timeout=timeout)
 
 
 def parse_x_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:

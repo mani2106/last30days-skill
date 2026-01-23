@@ -10,6 +10,8 @@ Options:
     --mock              Use fixtures instead of real API calls
     --emit=MODE         Output mode: compact|json|md|context|path (default: compact)
     --sources=MODE      Source selection: auto|reddit|x|both (default: auto)
+    --quick             Faster research with fewer sources (8-12 each)
+    --deep              Comprehensive research with more sources (50-70 Reddit, 40-60 X)
 """
 
 import argparse
@@ -54,6 +56,7 @@ def run_research(
     selected_models: dict,
     from_date: str,
     to_date: str,
+    depth: str = "default",
     mock: bool = False,
 ) -> tuple:
     """Run the research pipeline.
@@ -76,6 +79,7 @@ def run_research(
                 config["OPENAI_API_KEY"],
                 selected_models["openai"],
                 topic,
+                depth=depth,
             )
 
         # Parse response
@@ -102,6 +106,7 @@ def run_research(
                 topic,
                 from_date,
                 to_date,
+                depth=depth,
             )
 
         # Parse response
@@ -129,8 +134,29 @@ def main():
         default="auto",
         help="Source selection",
     )
+    parser.add_argument(
+        "--quick",
+        action="store_true",
+        help="Faster research with fewer sources (8-12 each)",
+    )
+    parser.add_argument(
+        "--deep",
+        action="store_true",
+        help="Comprehensive research with more sources (50-70 Reddit, 40-60 X)",
+    )
 
     args = parser.parse_args()
+
+    # Determine depth
+    if args.quick and args.deep:
+        print("Error: Cannot use both --quick and --deep", file=sys.stderr)
+        sys.exit(1)
+    elif args.quick:
+        depth = "quick"
+    elif args.deep:
+        depth = "deep"
+    else:
+        depth = "default"
 
     if not args.topic:
         print("Error: Please provide a topic to research.", file=sys.stderr)
@@ -166,7 +192,7 @@ def main():
     from_date, to_date = dates.get_date_range(30)
 
     # Check cache (unless refresh or mock)
-    cache_key = cache.get_cache_key(args.topic, from_date, to_date, sources)
+    cache_key = cache.get_cache_key(args.topic, from_date, to_date, f"{sources}:{depth}")
     if not args.refresh and not args.mock:
         cached = cache.load_cache(cache_key)
         if cached:
@@ -208,6 +234,7 @@ def main():
         selected_models,
         from_date,
         to_date,
+        depth,
         args.mock,
     )
 
