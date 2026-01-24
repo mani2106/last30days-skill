@@ -17,28 +17,37 @@ DEPTH_CONFIG = {
 
 REDDIT_SEARCH_PROMPT = """Search Reddit for discussions about: {topic}
 
-Focus on threads from the last 30 days. Find {min_items}-{max_items} high-quality, relevant threads.
+Use web search to find {min_items}-{max_items} relevant Reddit threads from the last 30 days.
 
-IMPORTANT: Return ONLY valid JSON in this exact format, no other text:
+CRITICAL: After searching, you MUST extract information from the Reddit URLs you found and return them as JSON.
+
+For EACH Reddit thread URL you find in your search results, extract:
+- The thread title
+- The full Reddit URL
+- The subreddit name
+- Approximate date if visible
+- Why it's relevant to "{topic}"
+
+Return ONLY valid JSON in this exact format:
 {{
   "items": [
     {{
-      "title": "Thread title",
-      "url": "https://reddit.com/r/...",
+      "title": "Actual thread title from Reddit",
+      "url": "https://www.reddit.com/r/subreddit/comments/...",
       "subreddit": "subreddit_name",
       "date": "YYYY-MM-DD or null if unknown",
-      "why_relevant": "Brief explanation of relevance",
+      "why_relevant": "Brief explanation of relevance to {topic}",
       "relevance": 0.85
     }}
   ]
 }}
 
 Rules:
+- You MUST include threads from the search results - do NOT return empty items
 - relevance is 0.0 to 1.0 (1.0 = highly relevant)
 - date must be YYYY-MM-DD format or null
-- Include diverse subreddits if applicable
-- Prefer threads with substantive discussions
-- Do NOT include engagement metrics (upvotes, comments) - those will be fetched separately"""
+- Include threads from diverse subreddits
+- Prefer threads with substantive discussions"""
 
 
 def search_reddit(

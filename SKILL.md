@@ -109,13 +109,23 @@ Identify from the ACTUAL RESEARCH OUTPUT:
 
 ## THEN: Show Summary + Invite Vision
 
-**CRITICAL ORDER**: Display sections in this EXACT sequence (insights FIRST, stats LAST):
+**CRITICAL ORDER**: Display sections in this EXACT sequence:
 
 ```
 ---
 What I learned:
 
 [2-4 sentences synthesizing key insights FROM THE ACTUAL RESEARCH OUTPUT. Quote or paraphrase what the sources said. If sources mention a specific product (ClawdBot, Cursor, etc.), use that name - don't substitute your own knowledge. The synthesis should be traceable back to the research results above.]
+
+---
+TARGET TOOL: {tool from research or user input}
+
+KEY PATTERNS I'll use:
+1. [Pattern from research]
+2. [Pattern from research]
+3. [Pattern from research]
+4. [Pattern from research]
+5. [Pattern from research]
 
 ---
 📊 Research Complete
@@ -126,7 +136,7 @@ Analyzed {total_sources} sources from the last 30 days
 └─ Top voices: r/{sub1}, r/{sub2}, @{handle1}, @{handle2}
 
 ---
-Share your vision for what you want to create and I'll write a thoughtful prompt you can copy-paste directly into {TARGET_TOOL or "your tool of choice"}.
+Share your vision for what you want to create and I'll write a thoughtful prompt you can copy-paste directly into {TARGET_TOOL}.
 ```
 
 **Use real numbers from the research output.** The patterns should be actual insights from the research, not generic advice.
