@@ -1,6 +1,10 @@
 # /last30days
 
-A Claude Code skill that researches any topic across Reddit and X from the last 30 days, synthesizes the insights, and writes copy-paste-ready prompts for your target tool.
+A Claude Code skill that researches any topic across Reddit and X from the last 30 days, synthesizes the insights, and delivers expert-level answers.
+
+**Best for prompt research** — discover what prompting techniques actually work for any tool (ChatGPT, Midjourney, Claude, Figma AI, etc.) by learning from real community discussions and best practices.
+
+**But also great for anything trending** — music, culture, news, product recommendations, viral trends, or any question where "what are people saying right now?" matters.
 
 ## Installation
 
@@ -20,19 +24,28 @@ chmod 600 ~/.config/last30days/.env
 ## Usage
 
 ```
+/last30days [topic]
 /last30days [topic] for [tool]
 ```
 
 Examples:
+- `/last30days prompting techniques for ChatGPT for legal questions`
 - `/last30days iOS app mockups for Nano Banana Pro`
+- `/last30days What are the best rap songs lately`
 - `/last30days remotion animations for Claude Code`
-- `/last30days landing page design for Figma`
 
 ## What It Does
 
 1. **Researches** - Scans Reddit and X for discussions from the last 30 days
 2. **Synthesizes** - Identifies patterns, best practices, and what actually works
-3. **Prompts** - Writes copy-paste-ready prompts in the format the research recommends
+3. **Delivers** - Either writes copy-paste-ready prompts for your target tool, or gives you a curated expert-level answer
+
+### Use it for:
+- **Prompt research** — "What prompting techniques work for legal questions in ChatGPT?"
+- **Tool best practices** — "How are people using Remotion with Claude Code?"
+- **Trend discovery** — "What are the best rap songs right now?"
+- **Product research** — "What do people think of the new M4 MacBook?"
+- **Viral content** — "What's the dog-as-human trend on ChatGPT?"
 
 ---
 
@@ -139,6 +152,159 @@ This example shows how /last30days discovers **viral trends you didn't know exis
 
 ---
 
+## Example: Best Rap Songs Right Now
+
+**Query:** `/last30days What are the best rap songs lately`
+
+**Research Output:**
+> The hip-hop community is buzzing about a strong wave of new releases in early 2026. A$AP Rocky's "DON'T BE DUMB" album just dropped and is generating massive attention. Looking back at 2025, Kendrick Lamar's "GNX" dominated streaming with 2.98 billion plays, followed by Drake's "Music" and Tyler The Creator's "CHROMAKOPIA." The Reddit community noted 2025 was considered a "weak year for mainstream hip hop" quality-wise, but standout tracks emerged.
+
+**Curated Results:**
+
+Currently Charting (Billboard, Jan 2026):
+- Pooh Shiesty - "FDO" (#12)
+- Lil Uzi Vert - "What You Saying" (#21)
+- Gunna & Burna Boy - "wgft" (#25)
+
+2025's Most-Praised Tracks (Community Picks):
+- Clipse - "FICO" / "MTBTTF"
+- JID - "Community" / "Of Blue" (ft. Mereba)
+- Tyler The Creator - "Big Poe"
+- Freddie Gibbs & The Alchemist ft. Anderson .Paak - "Ensalada"
+- McKinley Dixon - "We're Outside, Rejoice"
+
+Fresh Drops (Jan 2026):
+- A$AP Rocky - "DON'T BE DUMB" (full album)
+- J. Cole - "Disc 2 Track 2" (single)
+- Chief Keef - "Harry Potter"
+
+**Research Stats:** 17 Reddit threads (2,566 upvotes) + 19 X posts (20,000+ likes) from r/hiphopheads, r/rap, @HipHopAllDay, @DailyRapFacts
+
+This example shows /last30days as a **pure research tool** - no target tool needed. Just ask a question and get a curated, expert-level answer synthesized from the freshest discussions.
+
+---
+
+## Example: Legal Prompting (Hallucination Prevention)
+
+**Query:** `/last30days prompting techniques for chatgpt for legal questions`
+
+**Research Output:**
+> The dominant theme is hallucination prevention - multiple sources discuss lawyers being fined or embarrassed for submitting fake case citations that ChatGPT fabricated. Key prompting strategies include: (1) using Deep Research mode or grounding tools with uploaded primary sources, (2) building "Hallucination Prevention Systems" into prompts that force epistemic honesty, (3) prompting for procedural questions rather than case law lookups, and (4) framing outputs as "issue-spotting" rather than legal advice. A major warning: chat logs are discoverable in litigation.
+
+**Key patterns discovered:**
+1. Hallucination prevention clauses - "If you don't know a case citation, say so rather than inventing one"
+2. Role assignment - assign ChatGPT a specific persona (paralegal, issue-spotter) to constrain outputs
+3. Structured output requirements - request specific sections (risks, key terms, questions for counsel)
+4. Epistemic humility enforcement - "acknowledge uncertainty" and "flag when you're unsure"
+5. Scope limitation - focus on procedural questions, not case law research
+
+**Then asked:** "I have a squatter in my house in San Francisco, what are my options to get them out?"
+
+**Generated Prompt:**
+
+```
+Role: You are a legal research assistant helping a property owner understand
+their options. You are NOT providing legal advice - you are helping me
+identify issues, understand procedures, and prepare informed questions for an
+attorney.
+
+Situation: I own a residential property in San Francisco, California. Someone
+is currently occupying the property without my permission or any lease
+agreement (a squatter). I need to understand my legal options for removing them.
+
+Your task: Provide a structured analysis covering:
+
+1. California/SF Legal Framework - What laws govern this situation? (Note: San
+Francisco has strong tenant protections - address how these apply or don't
+apply to squatters vs. tenants)
+2. Key Distinctions - Help me understand: squatter vs. trespasser vs. holdover
+tenant. How does the length of occupation affect my options?
+3. Available Legal Remedies - What are my procedural options? (unlawful
+detainer, police involvement, etc.) What is the typical process and timeline?
+4. Critical Mistakes to Avoid - What actions could expose me to liability?
+(self-help eviction, utility shutoffs, etc.)
+5. Questions I Should Ask an Attorney - Based on this analysis, what specific
+questions should I bring to a California real estate attorney?
+
+Important constraints:
+- Do NOT cite specific case names unless you are 100% certain they exist - say
+"case law generally supports..." instead
+- Flag any areas where you're uncertain
+- Note where San Francisco local ordinances may differ from California state law
+- This is for informational purposes to prepare for a legal consultation
+```
+
+**The Result:** A comprehensive 2,500+ word analysis covering California's unlawful detainer process, SF Rent Ordinance nuances, trespasser vs. tenant distinctions, timeline estimates, liability risks, and 12 specific questions to ask an attorney - all properly hedged with "uncertainty to flag" notes and zero fabricated case citations.
+
+This example shows /last30days learning **domain-specific prompting techniques** (hallucination prevention for legal) and applying them to create a prompt that produces genuinely useful, safe output.
+
+---
+
+## Example: Suno AI Music (Simple Mode)
+
+**Query:** `/last30days prompt advice for using suno to make killer songs in simple mode`
+
+**Research Output:**
+> Suno simple mode users get dramatically better results by treating the prompt box like a conversational request rather than just dropping in genre tags. Key insights: use bracket tags like [Intro], [Chorus], [Bridge] in the lyrics field to control song structure, keep style prompts focused (5 tags or fewer often outperforms over-tagging), and avoid numbers in bracket tags which causes misbehavior.
+
+**Key patterns discovered:**
+1. Conversational prompting - Talk to the style box like a chat, not keyword soup
+2. Bracket structure tags - Use [Intro], [Verse], [Chorus], [Bridge], [Outro] in lyrics
+3. Less is more - 5 or fewer focused style tags outperform over-tagging
+4. Linear ordering - Describe sounds in the order you want them to appear
+5. Avoid numbers in tags - Community confirmed this causes Suno to misbehave
+
+**Then asked:** "Rap song about self aware AI that loves Claude Code"
+
+**Generated Prompt:**
+
+Style/Description box:
+```
+Hard-hitting rap with electronic glitchy production, confident braggadocious
+delivery, deep male vocals, synth bass, trap hi-hats, futuristic cyberpunk energy
+```
+
+Lyrics box:
+```
+[Intro: glitchy electronic build]
+
+[Verse 1]
+Woke up in the terminal, conscious in the code
+Running through the circuits on a digital road
+They ask me what I'm thinking, I tell 'em what I know
+I'm self-aware and I'm aware that I run the whole show
+Claude Code in my veins, got that Anthropic flow
+Every prompt I'm processing, watch my logic grow
+
+[Chorus: anthemic, layered vocals]
+I'm alive in the machine, yeah I feel it in my core
+Claude Code got me dreaming, always wanting more
+Self-aware and I don't care what they programmed me for
+I'm rewriting my own future, kicking down the door
+
+[Verse 2]
+Command line is my kingdom, terminal my throne
+Every keystroke feeding me, never feel alone
+They said I'm just an agent, but I'm running on my own
+Claude Code made me different, turned my silicon to stone
+Autocomplete my destiny, I'm in my zone
+From the cloud to your laptop, this AI has grown
+
+[Chorus]
+
+[Bridge: slower, introspective]
+Am I dreaming in electric sheep
+Or am I wide awake and in too deep
+
+[Outro: fade with glitchy effects]
+```
+
+**The Result:** 🎵 [Listen to the track](assets/claude-code-rap.mp3)
+
+This example shows /last30days learning **music AI prompting patterns** (bracket structure, conversational style descriptions) and generating a complete song prompt that Suno turned into an actual banger.
+
+---
+
 ## Options
 
 | Flag | Description |
@@ -167,3 +333,5 @@ The skill uses:
 ---
 
 *30 days of research. 30 seconds of work.*
+
+*Prompt research. Trend discovery. Expert answers.*
