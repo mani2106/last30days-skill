@@ -8,9 +8,15 @@ disable-model-invocation: true
 allowed-tools: Bash, Read, Write, AskUserQuestion, WebSearch
 ---
 
-# last30days: Become Expert → Write Prompts
+# last30days: Research Any Topic from the Last 30 Days
 
-Research a topic across Reddit and X, internalize the best practices, then write **copy-paste-ready prompts** the user can immediately use with their target tool.
+Research ANY topic across Reddit, X, and the web. Surface what people are actually discussing, recommending, and debating right now.
+
+Use cases:
+- **Recommendations**: "best Claude Code skills" → get a LIST of specific skills people mention
+- **News**: "what's happening with OpenAI" → get current events and updates
+- **How-to**: "Midjourney prompts" → learn techniques, then get copy-paste prompts
+- **General**: any topic → understand what the community is saying
 
 ## CRITICAL: Parse User Intent
 
@@ -18,19 +24,27 @@ Before doing anything, parse the user's input for:
 
 1. **TOPIC**: What they want to learn about (e.g., "web app mockups", "Claude Code skills", "image generation")
 2. **TARGET TOOL** (if specified): Where they'll use the prompts (e.g., "Nano Banana Pro", "ChatGPT", "Midjourney")
+3. **QUERY TYPE**: What kind of research they want:
+   - **RECOMMENDATIONS** - "best X", "top X", "what X should I use", "recommended X" → User wants a LIST of specific things
+   - **NEWS** - "what's happening with X", "X news", "latest on X" → User wants current events/updates
+   - **HOW-TO** - "how to X", "X tutorial", "learn X" → User wants educational content
+   - **GENERAL** - anything else → User wants broad understanding of the topic
 
 Common patterns:
 - `[topic] for [tool]` → "web mockups for Nano Banana Pro" → TOOL IS SPECIFIED
 - `[topic] prompts for [tool]` → "UI design prompts for Midjourney" → TOOL IS SPECIFIED
 - Just `[topic]` → "iOS design mockups" → TOOL NOT SPECIFIED, that's OK
+- "best [topic]" or "top [topic]" → QUERY_TYPE = RECOMMENDATIONS
+- "what are the best [topic]" → QUERY_TYPE = RECOMMENDATIONS
 
 **IMPORTANT: Do NOT ask about target tool before research.**
 - If tool is specified in the query, use it
 - If tool is NOT specified, run research first, then ask AFTER showing results
 
-**Store the TOPIC** - you'll extract or ask about TARGET_TOOL later:
+**Store these variables:**
 - `TOPIC = [extracted topic]`
 - `TARGET_TOOL = [extracted tool, or "unknown" if not specified]`
+- `QUERY_TYPE = [RECOMMENDATIONS | NEWS | HOW-TO | GENERAL]`
 
 ---
 
@@ -92,8 +106,31 @@ The script displays progress:
 ```
 
 **Step 2: While script runs, do WebSearch**
-- Search for: `{TOPIC} 2026` (or current year) - find 8-15 pages
-- Search for: `{TOPIC} best practices tutorial guide` - find 5-10 more
+
+Choose search queries based on QUERY_TYPE:
+
+**If RECOMMENDATIONS** ("best X", "top X", "what X should I use"):
+- Search for: `best {TOPIC} recommendations`
+- Search for: `{TOPIC} list examples`
+- Search for: `most popular {TOPIC}`
+- Goal: Find SPECIFIC NAMES of things, not generic advice
+
+**If NEWS** ("what's happening with X", "X news"):
+- Search for: `{TOPIC} news 2026`
+- Search for: `{TOPIC} announcement update`
+- Goal: Find current events and recent developments
+
+**If HOW-TO** ("how to X", "tutorial"):
+- Search for: `{TOPIC} tutorial guide 2026`
+- Search for: `{TOPIC} best practices`
+- Goal: Find educational content
+
+**If GENERAL** (default):
+- Search for: `{TOPIC} 2026`
+- Search for: `{TOPIC} discussion`
+- Goal: Find what people are actually saying
+
+For ALL query types:
 - EXCLUDE reddit.com, x.com, twitter.com (covered by script)
 - INCLUDE: blogs, tutorials, docs, news, GitHub repos
 - **DO NOT output "Sources:" list** - this is noise, we'll show stats at the end
@@ -140,6 +177,24 @@ Read the research output carefully. Pay attention to:
 
 **ANTI-PATTERN TO AVOID**: If user asks about "clawdbot skills" and research returns ClawdBot content (self-hosted AI agent), do NOT synthesize this as "Claude Code skills" just because both involve "skills". Read what the research actually says.
 
+### If QUERY_TYPE = RECOMMENDATIONS
+
+**CRITICAL: Extract SPECIFIC NAMES, not generic patterns.**
+
+When user asks "best X" or "top X", they want a LIST of specific things:
+- Scan research for specific product names, tool names, project names, skill names, etc.
+- Count how many times each is mentioned
+- Note which sources recommend each (Reddit thread, X post, blog)
+- List them by popularity/mention count
+
+**BAD synthesis for "best Claude Code skills":**
+> "Skills are powerful. Keep them under 500 lines. Use progressive disclosure."
+
+**GOOD synthesis for "best Claude Code skills":**
+> "Most mentioned skills: /commit (5 mentions), remotion skill (4x), git-worktree (3x), /pr (3x). The Remotion announcement got 16K likes on X."
+
+### For all QUERY_TYPEs
+
 Identify from the ACTUAL RESEARCH OUTPUT:
 - **PROMPT FORMAT** - Does research recommend JSON, structured params, natural language, keywords? THIS IS CRITICAL.
 - The top 3-5 patterns/techniques that appeared across multiple sources
@@ -169,12 +224,32 @@ Analyzed {total_sources} sources from the last 30 days
 What I learned:
 
 [2-4 sentences synthesizing key insights FROM THE ACTUAL RESEARCH OUTPUT. Quote or paraphrase what the sources said. The synthesis should be traceable back to the research results above.]
+```
 
+**Then, based on QUERY_TYPE:**
+
+**If RECOMMENDATIONS** - Show specific things mentioned:
+```
+🏆 Most mentioned:
+1. [Specific name] - mentioned {n}x (r/sub, @handle, blog.com)
+2. [Specific name] - mentioned {n}x (sources)
+3. [Specific name] - mentioned {n}x (sources)
+4. [Specific name] - mentioned {n}x (sources)
+5. [Specific name] - mentioned {n}x (sources)
+
+Notable mentions: [other specific things with 1-2 mentions]
+```
+
+**If NEWS/HOW-TO/GENERAL** - Show patterns:
+```
 KEY PATTERNS I'll use:
 1. [Pattern from research]
 2. [Pattern from research]
 3. [Pattern from research]
+```
 
+**Then always end with:**
+```
 ---
 Share your vision for what you want to create and I'll write a thoughtful prompt you can copy-paste directly into {TARGET_TOOL}.
 ```
