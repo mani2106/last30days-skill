@@ -405,28 +405,31 @@ def main():
     else:
         depth = "default"
 
-    if not args.topic:
-        print("Error: Please provide a topic to research.", file=sys.stderr)
-        print("Usage: python3 last30days.py <topic> [options]", file=sys.stderr)
-        sys.exit(1)
-
-    # Load config
+    # Load config first to check Bird availability
     config = env.get_config()
 
-    # Initialize progress display early for Bird prompts
-    progress = ui.ProgressDisplay(args.topic, show_banner=True)
-
-    # Check Bird availability and offer install if needed
+    # Check Bird availability and offer install if needed (before topic validation)
     x_source_status = env.get_x_source_status(config)
     x_source = x_source_status["source"]
 
     # If no X source and Bird can be installed, offer it
     if x_source is None and x_source_status["can_install_bird"]:
-        bird_result = setup_bird_if_needed(progress)
+        # Create minimal progress for Bird prompts (no topic yet)
+        temp_progress = ui.ProgressDisplay("setup", show_banner=False)
+        bird_result = setup_bird_if_needed(temp_progress)
         if bird_result == 'bird':
             x_source = 'bird'
             # Refresh status
             x_source_status = env.get_x_source_status(config)
+
+    # Now validate topic
+    if not args.topic:
+        print("Error: Please provide a topic to research.", file=sys.stderr)
+        print("Usage: python3 last30days.py <topic> [options]", file=sys.stderr)
+        sys.exit(1)
+
+    # Initialize progress display with topic
+    progress = ui.ProgressDisplay(args.topic, show_banner=True)
 
     # Check available sources (now accounting for Bird)
     available = env.get_available_sources(config)
