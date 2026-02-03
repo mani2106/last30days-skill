@@ -7,6 +7,13 @@ import sys
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+# Depth configurations: number of results to request
+DEPTH_CONFIG = {
+    "quick": 12,
+    "default": 30,
+    "deep": 60,
+}
+
 
 def _log(msg: str):
     """Log to stderr."""
@@ -99,3 +106,61 @@ def get_bird_status() -> Dict[str, Any]:
         "username": username,
         "can_install": check_npm_available(),
     }
+
+
+def search_x(
+    topic: str,
+    from_date: str,
+    to_date: str,
+    depth: str = "default",
+) -> Dict[str, Any]:
+    """Search X using Bird CLI.
+
+    Args:
+        topic: Search topic
+        from_date: Start date (YYYY-MM-DD)
+        to_date: End date (YYYY-MM-DD) - unused but kept for API compatibility
+        depth: Research depth - "quick", "default", or "deep"
+
+    Returns:
+        Raw Bird JSON response or error dict.
+    """
+    count = DEPTH_CONFIG.get(depth, DEPTH_CONFIG["default"])
+
+    # Build command
+    cmd = [
+        "bird", "search",
+        topic,
+        "--since", from_date,
+        "-n", str(count),
+        "--json",
+    ]
+
+    # Adjust timeout based on depth
+    timeout = 30 if depth == "quick" else 45 if depth == "default" else 60
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+
+        if result.returncode != 0:
+            error = result.stderr.strip() or "Bird search failed"
+            return {"error": error, "items": []}
+
+        # Parse JSON output
+        output = result.stdout.strip()
+        if not output:
+            return {"items": []}
+
+        return json.loads(output)
+
+    except subprocess.TimeoutExpired:
+        return {"error": "Search timed out", "items": []}
+    except json.JSONDecodeError as e:
+        return {"error": f"Invalid JSON response: {e}", "items": []}
+    except Exception as e:
+        return {"error": str(e), "items": []}
