@@ -413,8 +413,30 @@ def main():
     # Load config
     config = env.get_config()
 
-    # Check available sources
+    # Initialize progress display early for Bird prompts
+    progress = ui.ProgressDisplay(args.topic, show_banner=True)
+
+    # Check Bird availability and offer install if needed
+    x_source_status = env.get_x_source_status(config)
+    x_source = x_source_status["source"]
+
+    # If no X source and Bird can be installed, offer it
+    if x_source is None and x_source_status["can_install_bird"]:
+        bird_result = setup_bird_if_needed(progress)
+        if bird_result == 'bird':
+            x_source = 'bird'
+            # Refresh status
+            x_source_status = env.get_x_source_status(config)
+
+    # Check available sources (now accounting for Bird)
     available = env.get_available_sources(config)
+
+    # Override available if Bird is ready
+    if x_source == 'bird':
+        if available == 'reddit':
+            available = 'both'  # Now have both Reddit + X (via Bird)
+        elif available == 'web':
+            available = 'x'  # Now have X via Bird
 
     # Mock mode can work without keys
     if args.mock:
@@ -438,9 +460,6 @@ def main():
 
     # Check what keys are missing for promo messaging
     missing_keys = env.get_missing_keys(config)
-
-    # Initialize progress display
-    progress = ui.ProgressDisplay(args.topic, show_banner=True)
 
     # Show promo for missing keys BEFORE research
     if missing_keys != 'none':
@@ -492,6 +511,7 @@ def main():
         depth,
         args.mock,
         progress,
+        x_source=x_source or "xai",
     )
 
     # Processing phase
