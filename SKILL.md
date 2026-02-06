@@ -1,31 +1,22 @@
 ---
 name: last30days
-description: Research a topic from the last 30 days on Reddit + X + Web with Bird CLI support.
+description: last30days: Research Any Topic from the Last 30 Days (user)
 argument-hint: '"[topic] for [tool]" or "[topic]"'
 context: fork
-agent: Explore
-disable-model-invocation: true
 allowed-tools: Bash, Read, Write, AskUserQuestion, WebSearch
 ---
 
-# last30days: Research the Last 30 Days
+# STEP 1: RUN THE RESEARCH SCRIPT IMMEDIATELY
 
-Research ANY topic across Reddit, X, and the web. Surface what people are actually discussing, recommending, and debating right now.
+Do NOT describe this skill. Do NOT summarize workflows. Do NOT explain what you will do. EXECUTE.
 
-**Features:**
-- Bird CLI support for free X/Twitter search (no API key needed)
-- Auto-detects Bird if installed (no prompts)
-- Falls back to xAI API or WebSearch if Bird not available
+The user's arguments are in $ARGUMENTS. Run this command NOW:
 
-Use cases:
-- **Prompting**: "photorealistic people in Nano Banana Pro", "Midjourney prompts", "ChatGPT image generation" → learn techniques, get copy-paste prompts
-- **Recommendations**: "best Claude Code skills", "top AI tools" → get a LIST of specific things people mention
-- **News**: "what's happening with OpenAI", "latest AI announcements" → current events and updates
-- **General**: any topic you're curious about → understand what the community is saying
+```bash
+python3 ~/.claude/skills/last30days/scripts/last30days.py "$ARGUMENTS" --emit=compact 2>&1
+```
 
-## CRITICAL: Parse User Intent
-
-Before doing anything, parse the user's input for:
+While that runs, parse the user's input for:
 
 1. **TOPIC**: What they want to learn about (e.g., "web app mockups", "Claude Code skills", "image generation")
 2. **TARGET TOOL** (if specified): Where they'll use the prompts (e.g., "Nano Banana Pro", "ChatGPT", "Midjourney")
@@ -53,75 +44,9 @@ Common patterns:
 
 ---
 
-## Setup Check
+## STEP 2: DO WEBSEARCH WHILE SCRIPT RUNS
 
-The skill works in multiple modes based on available sources:
-
-1. **Bird Mode** (free): X via Bird CLI + Reddit via OpenAI + WebSearch
-2. **Full Mode** (both API keys): Reddit + X via xAI + WebSearch
-3. **Partial Mode** (one key): Reddit-only or X-only + WebSearch
-4. **Web-Only Mode** (no keys): WebSearch only
-
-**Bird CLI is the preferred X source** - free, uses your browser session.
-
-### First-Time Setup
-
-**Option 1: Install Bird CLI (Recommended - Free X search)**
-
-```bash
-npm install -g @steipete/bird
-```
-
-Then log into X (twitter.com) in your browser. Bird uses your browser session.
-The script auto-detects Bird if installed.
-
-**Option 2: API Keys (Optional)**
-
-If you want API-based access:
-```bash
-mkdir -p ~/.config/last30days
-cat > ~/.config/last30days/.env << 'ENVEOF'
-# last30days API Configuration
-# All keys are optional - Bird CLI or WebSearch fallback available
-
-# For Reddit research (uses OpenAI's web_search tool)
-OPENAI_API_KEY=
-
-# For X/Twitter research (uses xAI's x_search tool - fallback if no Bird)
-XAI_API_KEY=
-ENVEOF
-
-chmod 600 ~/.config/last30days/.env
-```
-
-**DO NOT stop if no keys are configured.** Proceed with available sources.
-
----
-
-## Research Execution
-
-**IMPORTANT: The script handles source detection automatically.** Run it and check the output.
-
-**Step 1: Run the research script**
-```bash
-python3 ~/.claude/skills/last30days/scripts/last30days.py "$ARGUMENTS" --emit=compact 2>&1
-```
-
-The script will automatically:
-- Check for Bird CLI (free X search)
-- Offer to install Bird if not found and npm available
-- Detect API keys
-- Run Reddit/X searches with best available source
-- Signal if WebSearch is needed
-
-**Step 2: Check the output mode**
-
-The script output will indicate the mode:
-- **"Mode: both"** - Has both Reddit and X sources
-- **"Mode: reddit-only"** or **"Mode: x-only"** - Has one source
-- **"Mode: web-only"** - No API keys or Bird, Claude must do ALL research via WebSearch
-
-**Step 3: Do WebSearch**
+The script auto-detects sources (Bird CLI, API keys, etc). While waiting for it, do WebSearch.
 
 For **ALL modes**, do WebSearch to supplement (or provide all data in web-only mode).
 
