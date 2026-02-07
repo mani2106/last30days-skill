@@ -2,7 +2,7 @@
 
 **The AI world reinvents itself every month. This Claude Code skill keeps you current.** /last30days researches your topic across Reddit, X, and the web from the last 30 days, finds what the community is actually upvoting and sharing, and writes you a prompt that works today, not six months ago. Whether it's Ralph Wiggum loops, Suno music prompts, or the latest Midjourney techniques, you'll prompt like someone who's been paying attention.
 
-**New in V2:** Free X search via [Bird CLI](https://github.com/steipete/bird) (no xAI key needed), smart supplemental search that drills into key @handles and subreddits discovered during research, `--days=N` for flexible lookback windows, and automatic model fallback so it works even if your OpenAI org isn't verified for newer models. [Full changelog below.](#whats-new-in-v2)
+**New in V2:** Dramatically better search results. Smarter query construction finds posts that V1 missed entirely, and a new two-phase search automatically discovers key @handles and subreddits from initial results, then drills deeper. Also: free X search via [Bird CLI](https://github.com/steipete/bird) (no xAI key needed), `--days=N` for flexible lookback, and automatic model fallback. [Full changelog below.](#whats-new-in-v2)
 
 **Best for prompt research**: discover what prompting techniques actually work for any tool (ChatGPT, Midjourney, Claude, Figma AI, etc.) by learning from real community discussions and best practices.
 
@@ -751,11 +751,23 @@ If your OpenAI org doesn't have access to a model (e.g., unverified for gpt-4.1)
 
 ## What's New in V2
 
-**Bird CLI integration** - Free X search without an xAI API key. Just `npm install -g @steipete/bird && bird login`. Auto-detected at runtime.
+### Way better X and Reddit results
+
+V2 finds significantly more content than V1. Two major improvements:
+
+**Smarter query construction** - V1 sent overly specific queries to X search (literal keyword AND matching), causing 0 results on topics that were actively trending. V2 aggressively strips research/meta words ("best", "prompt", "techniques", "tips") and question prefixes ("what are people saying about") to extract just the core topic. Example: `"vibe motion best prompt techniques"` now searches for `"vibe motion"` instead of `"vibe motion prompt techniques"` — going from 0 posts to 12+. Automatically retries with fewer keywords if the first attempt returns nothing.
+
+**Smart supplemental search (Phase 2)** - After the initial broad search, extracts key @handles and subreddits from the results, then runs targeted follow-up searches to find content that keyword search alone misses. Example: researching "Open Claw" automatically discovers @openclaw, @steipete and drills into their posts. For Reddit, it hits the free `.json` search endpoint scoped to discovered subreddits — no extra API keys needed.
+
+**Reddit JSON enrichment** - Fetches real upvote and comment counts from Reddit's free API for every thread, giving you actual engagement signals instead of estimates.
+
+### Free X search via Bird CLI
+
+**Bird CLI integration** - Search X without an xAI API key. Just `npm install -g @steipete/bird && bird login`. Auto-detected at runtime — if Bird is installed, it's used automatically. If both Bird and an xAI key are available, Bird is preferred.
+
+### Everything else
 
 **`--days=N` flag** - Configurable lookback window. `/last30days topic --days=7` for a weekly roundup, `--days=14` for two weeks.
-
-**Smart supplemental search (Phase 2)** - After the initial broad search, extracts key @handles and subreddits from results, then runs targeted follow-up searches to find content that broad keyword search misses. Example: researching "Open Claw" automatically discovers @openclaw, @steipete and drills into their posts.
 
 **Model fallback chain** - If your OpenAI org can't access gpt-4.1, automatically falls back to gpt-4o, then gpt-4o-mini. No config needed.
 
@@ -763,15 +775,15 @@ If your OpenAI org doesn't have access to a model (e.g., unverified for gpt-4.1)
 
 **Citation priority** - Cites @handles from X and r/subreddits over web sources, because the skill's value is surfacing what *people* are saying, not what journalists wrote.
 
-**Reddit JSON enrichment** - Fetches real upvote and comment counts from Reddit's free API for every thread, giving you actual engagement signals.
-
 **Marketplace plugin support** - Ships with `.claude-plugin/plugin.json` for Claude Code marketplace compatibility. (Inspired by [@galligan](https://github.com/galligan)'s PR)
 
-**Windows Unicode fix** - Handles Unicode output correctly on Windows terminals. (Thanks [@JosephOIbrahim](https://github.com/JosephOIbrahim))
+### Community contributions
 
-**Model fallback for unverified orgs** - If your OpenAI org doesn't have access to newer models, gracefully falls back. (Thanks [@levineam](https://github.com/levineam))
+Thanks to the contributors who helped shape V2:
 
-**`--days=N` configurable lookback** - Community-contributed flag for flexible time windows. (Thanks [@jonthebeef](https://github.com/jonthebeef))
+- [@JosephOIbrahim](https://github.com/JosephOIbrahim) - Windows Unicode fix
+- [@levineam](https://github.com/levineam) - Model fallback for unverified orgs
+- [@jonthebeef](https://github.com/jonthebeef) - `--days=N` configurable lookback
 
 ---
 
