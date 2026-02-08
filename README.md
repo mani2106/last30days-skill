@@ -19,11 +19,18 @@ git clone https://github.com/mvanhorn/last30days-skill.git ~/.claude/skills/last
 # Add your API keys
 mkdir -p ~/.config/last30days
 cat > ~/.config/last30days/.env << 'EOF'
-OPENAI_API_KEY=sk-...
-XAI_API_KEY=xai-...       # optional if using Bird CLI
+# Reddit search (choose one or both)
+OPENAI_API_KEY=sk-...           # OpenAI for Reddit
+OPENROUTER_API_KEY=sk-or-...    # OpenRouter (free tier) - takes precedence
+
+# X search (choose one)
+XAI_API_KEY=xai-...             # xAI for X search
+# Bird CLI is free - see below
 EOF
 chmod 600 ~/.config/last30days/.env
 ```
+
+**Provider priority for Reddit:** OpenRouter → OpenAI. If both keys are available, OpenRouter is used by default. You can override with `--reddit-provider=openai|openrouter`.
 
 ### Optional: Bird CLI for free X search
 
@@ -776,26 +783,33 @@ This example shows /last30days discovering **emerging developer workflows** - re
 | `--debug` | Verbose logging for troubleshooting |
 | `--sources=reddit` | Reddit only |
 | `--sources=x` | X only |
+| `--reddit-provider=auto\|openai\|openrouter` | Reddit search provider (default: auto, prefers OpenRouter) |
+| `--emit=auto\|compact\|json\|md\|context\|path` | Output format (auto: JSON in Claude, compact in terminal) |
 
 ## Requirements
 
-- **OpenAI API key** - For Reddit research (uses web search via Responses API)
+- **Reddit search** (at least one):
+  - **OpenAI API key** - Uses OpenAI's web search via Responses API
+  - **OpenRouter API key** - Uses OpenRouter's free tier (`openrouter/free` model) - **recommended, no cost**
+  - Provider priority: OpenRouter → OpenAI
+
 - **X search** (one of):
-  - **Bird CLI** (free) - `npm install -g @steipete/bird && bird login`
+  - **Bird CLI** (free) - `npm install -g @steipete/bird && bird login` - **recommended, no cost**
   - **xAI API key** - Paid, uses Grok's live X search
 
-At least one API key is required. Bird CLI is recommended for X search since it's free.
+At minimum, you need one Reddit search provider (OpenAI or OpenRouter) and one X search option (Bird CLI or xAI). The free combination is **OpenRouter + Bird CLI**.
 
 ## How It Works
 
 ### Two-Phase Search Architecture
 
 **Phase 1: Broad discovery**
-- OpenAI Responses API with `web_search` tool scoped to reddit.com
+- OpenAI or OpenRouter API with `web_search` tool scoped to reddit.com
 - Bird CLI (or xAI API) for X/Twitter search
 - WebSearch for blogs, news, docs, tutorials
 - Reddit JSON enrichment for real engagement metrics (upvotes, comments)
 - Scoring algorithm weighing recency, relevance, and engagement
+- **Date detection** - Extracts and validates dates from URLs, snippets, and titles to ensure 30-day window compliance
 
 **Phase 2: Smart supplemental search** (new in V2)
 - Extracts entities from Phase 1 results: @handles from X posts, subreddit names from Reddit
@@ -803,6 +817,24 @@ At least one API key is required. Bird CLI is recommended for X search since it'
 - Uses Reddit's free `.json` search endpoint (no API key needed for supplemental)
 - Merges and deduplicates with Phase 1 results
 - Skipped on `--quick` for speed; extended on `--deep`
+
+### Date Detection & Filtering
+
+All search results pass through a shared date detection system that:
+
+1. **Extracts dates** from multiple sources:
+   - URL patterns (`/2026/01/24/`, `/2026-01-24/`)
+   - Publication dates from API responses
+   - Relative dates in text ("yesterday", "5 days ago")
+   - Natural language dates ("January 24, 2026")
+
+2. **Validates dates** against the configured lookback window (default: 30 days)
+
+3. **Confidence scoring** - Each date extraction is scored (high/med/low) based on source reliability
+
+4. **Graceful fallback** - Items without detectable dates are included (can't filter what we can't detect)
+
+This ensures you get results from your target time window, not outdated content.
 
 ### Model Fallback Chain
 
@@ -829,6 +861,15 @@ V2 finds significantly more content than V1. Two major improvements:
 
 **Bird CLI integration** - Search X without an xAI API key. Just `npm install -g @steipete/bird && bird login`. Auto-detected at runtime — if Bird is installed, it's used automatically. If both Bird and an xAI key are available, Bird is preferred.
 
+### Reddit Search Provider Options
+
+**OpenRouter support (free models)** - Use OpenRouter's free tier for Reddit search instead of OpenAI. Set `OPENROUTER_API_KEY` in `~/.config/last30days/.env` and the skill automatically uses OpenRouter's free model routing (`openrouter/free`) which auto-selects the best available free model. Provider selection priority: OpenRouter → OpenAI.
+
+**Provider selection** - Control which provider to use with `--reddit-provider` flag:
+- `--reddit-provider=auto` (default) - Prefers OpenRouter if available, falls back to OpenAI
+- `--reddit-provider=openrouter` - Force OpenRouter
+- `--reddit-provider=openai` - Force OpenAI
+
 ### Everything else
 
 **`--days=N` flag** - Configurable lookback window. `/last30days topic --days=7` for a weekly roundup, `--days=14` for two weeks.
@@ -841,6 +882,8 @@ V2 finds significantly more content than V1. Two major improvements:
 
 **Marketplace plugin support** - Ships with `.claude-plugin/plugin.json` for Claude Code marketplace compatibility. (Inspired by [@galligan](https://github.com/galligan)'s PR)
 
+**Context-aware output** - When running as a Claude Code skill, automatically outputs JSON for programmatic consumption. When run from terminal, defaults to human-readable "compact" format. Use `--emit=auto` for automatic detection, or specify `--emit=json|compact|md|context|path` explicitly.
+
 ### Community contributions
 
 Thanks to the contributors who helped shape V2:
@@ -848,6 +891,45 @@ Thanks to the contributors who helped shape V2:
 - [@JosephOIbrahim](https://github.com/JosephOIbrahim) - Windows Unicode fix
 - [@levineam](https://github.com/levineam) - Model fallback for unverified orgs
 - [@jonthebeef](https://github.com/jonthebeef) - `--days=N` configurable lookback
+
+---
+
+## Technical Architecture
+
+### Provider Pluggability
+
+The skill uses a modular provider system that makes it easy to add new search sources:
+
+- **Reddit providers**: OpenRouter (free), OpenAI - follow the `openai_reddit.py` pattern
+- **X providers**: Bird CLI (free), xAI API - follow the `xai_x.py` and `bird_x.py` pattern
+- **Web search**: SearXNG via MCP, Claude WebSearch - see `searxng.py` and `hybrid_search.py`
+
+### Hybrid Search Architecture
+
+The three-tier search architecture provides graceful fallback:
+
+1. **Tier 1**: Claude MCP SearXNG Enhanced Server (when running as skill)
+2. **Tier 2**: Claude WebSearch (always available in Claude Code)
+3. **Tier 3**: Shared date detection for post-processing
+
+This ensures the skill works in any context - as a Claude Code skill with full MCP integration, or as a standalone CLI tool.
+
+### Date Detection System
+
+Shared across all search sources, the date detection system (`date_detect.py`) provides:
+
+- URL pattern extraction (`/2026/01/24/article`)
+- Natural language parsing ("January 24, 2026", "yesterday", "5 days ago")
+- Date range validation against configurable lookback window
+- Confidence scoring for filtering decisions
+
+### Context-Aware Output
+
+When running as a Claude Code skill, the skill automatically:
+- Detects Claude Code environment via `CLAUDE_CONTEXT` or `CLAUDE_CODE` environment variables
+- Outputs JSON for programmatic consumption (not human-readable text)
+- Tracks which providers were used (stored in report metadata)
+- Saves provider-specific raw response files for debugging
 
 ---
 
