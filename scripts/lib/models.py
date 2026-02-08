@@ -16,6 +16,16 @@ XAI_ALIASES = {
     "stable": "grok-4-1-fast",
 }
 
+# OpenRouter API - FREE tier only
+OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
+OPENROUTER_FREE_MODEL = "openrouter/free"  # Auto-routes to best available free model
+OPENROUTER_FALLBACK_MODELS = [
+    "openrouter/free",  # Primary: use OpenRouter's free routing
+    "openrouter/auto",  # Fallback: auto routing (may include paid)
+    "google/gemma-2-9b-it:free",  # Specific free model
+    "meta-llama/llama-3-8b-instruct:free",  # Specific free model
+]
+
 
 def parse_version(model_id: str) -> Optional[Tuple[int, ...]]:
     """Parse semantic version from model ID.
@@ -46,6 +56,35 @@ def is_mainline_openai_model(model_id: str) -> bool:
             return False
 
     return True
+
+
+def is_good_openrouter_model(model_id: str) -> bool:
+    """Check if model is suitable for web search via OpenRouter.
+
+    Prioritizes Anthropic models, then OpenAI mainline.
+
+    Args:
+        model_id: Model ID from OpenRouter (e.g., "anthropic/claude-sonnet-4")
+
+    Returns:
+        True if model is suitable for web search
+    """
+    model_lower = model_id.lower()
+
+    # Prefer Anthropic Claude Sonnet 4
+    if model_id.startswith("anthropic/claude-sonnet-4"):
+        return True
+    # Avoid other Claude families (Haiku, Opus)
+    if model_id.startswith("anthropic/claude-"):
+        return False
+
+    # Accept OpenAI mainline GPT-5 and GPT-4o
+    if model_id.startswith("openai/gpt-5") or model_id.startswith("openai/gpt-4o"):
+        return True
+
+    # Exclude lower-tier models
+    excludes = ['mini', 'nano', 'turbo', 'flash', 'instruct', 'chat']
+    return not any(exc in model_lower for exc in excludes)
 
 
 def select_openai_model(
@@ -144,17 +183,46 @@ def select_xai_model(
     return XAI_ALIASES["latest"]
 
 
+def select_openrouter_model(
+    api_key: str,  # Unused but kept for API consistency
+    policy: str = "auto",
+    pin: Optional[str] = None,
+    mock_models: Optional[List[Dict]] = None,  # Unused but kept for API consistency
+) -> str:
+    """Select the best OpenRouter model based on policy.
+
+    For OpenRouter, we use "openrouter/free" which auto-routes to the best
+    available free model. This ensures we only use free tier.
+
+    Args:
+        api_key: OpenRouter API key (unused, kept for API consistency)
+        policy: 'auto' or 'pinned'
+        pin: Model to use if policy is 'pinned'
+        mock_models: Mock model list for testing (unused, kept for API consistency)
+
+    Returns:
+        Selected model ID (always "openrouter/free" unless pinned)
+    """
+    if policy == "pinned" and pin:
+        return pin
+
+    # For OpenRouter free tier, use "openrouter/free" which auto-routes
+    # to the best available free model
+    return OPENROUTER_FREE_MODEL
+
+
 def get_models(
     config: Dict,
     mock_openai_models: Optional[List[Dict]] = None,
     mock_xai_models: Optional[List[Dict]] = None,
+    mock_openrouter_models: Optional[List[Dict]] = None,
 ) -> Dict[str, Optional[str]]:
-    """Get selected models for both providers.
+    """Get selected models for all providers.
 
     Returns:
-        Dict with 'openai' and 'xai' keys
+        Dict with 'openai', 'xai', 'openrouter' keys
     """
-    result = {"openai": None, "xai": None}
+    result = {"openai": None, "xai": None, "openrouter": None}
 
     if config.get("OPENAI_API_KEY"):
         result["openai"] = select_openai_model(
@@ -170,6 +238,14 @@ def get_models(
             config.get("XAI_MODEL_POLICY", "latest"),
             config.get("XAI_MODEL_PIN"),
             mock_xai_models,
+        )
+
+    if config.get("OPENROUTER_API_KEY"):
+        result["openrouter"] = select_openrouter_model(
+            config["OPENROUTER_API_KEY"],
+            config.get("OPENROUTER_MODEL_POLICY", "auto"),
+            config.get("OPENROUTER_MODEL_PIN"),
+            mock_openrouter_models,
         )
 
     return result

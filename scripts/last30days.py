@@ -22,20 +22,29 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Configure UTF-8 output for Windows console
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 # Add lib to path
 SCRIPT_DIR = Path(__file__).parent.resolve()
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from lib import (
     bird_x,
+    claude_mcp,
     dates,
     dedupe,
     entity_extract,
     env,
     http,
+    hybrid_search,
     models,
     normalize,
     openai_reddit,
+    openrouter_reddit,
     reddit_enrich,
     render,
     schema,
@@ -63,20 +72,52 @@ def _search_reddit(
     to_date: str,
     depth: str,
     mock: bool,
+    reddit_provider: str = "openai",
 ) -> tuple:
-    """Search Reddit via OpenAI (runs in thread).
+    """Search Reddit via selected provider (runs in thread).
+
+    Args:
+        reddit_provider: 'openai' or 'openrouter'
 
     Returns:
-        Tuple of (reddit_items, raw_openai, error)
+        Tuple of (reddit_items, raw_response, error, provider_used)
     """
-    raw_openai = None
+    raw_response = None
     reddit_error = None
 
     if mock:
-        raw_openai = load_fixture("openai_sample.json")
-    else:
+        # Use OpenAI fixture for mock mode (same structure)
+        raw_response = load_fixture("openai_sample.json")
+        reddit_items = openai_reddit.parse_reddit_response(raw_response or {})
+        return reddit_items, raw_response, reddit_error, "openai"
+
+    # Route to appropriate provider
+    if reddit_provider == "openrouter":
+        # Use OpenRouter for Reddit search
         try:
-            raw_openai = openai_reddit.search_reddit(
+            raw_response = openrouter_reddit.search_reddit(
+                config["OPENROUTER_API_KEY"],
+                selected_models["openrouter"],
+                topic,
+                from_date,
+                to_date,
+                depth=depth,
+            )
+        except http.HTTPError as e:
+            raw_response = {"error": str(e)}
+            reddit_error = f"API error: {e}"
+        except Exception as e:
+            raw_response = {"error": str(e)}
+            reddit_error = f"{type(e).__name__}: {e}"
+
+        reddit_items = openrouter_reddit.parse_reddit_response(raw_response or {})
+
+        # Note: OpenRouter's web search may handle retries differently
+        # For now, we'll rely on the web search's built-in retry logic
+    else:
+        # Use OpenAI (existing V2 code with enhanced retry logic)
+        try:
+            raw_response = openai_reddit.search_reddit(
                 config["OPENAI_API_KEY"],
                 selected_models["openai"],
                 topic,
@@ -85,56 +126,56 @@ def _search_reddit(
                 depth=depth,
             )
         except http.HTTPError as e:
-            raw_openai = {"error": str(e)}
+            raw_response = {"error": str(e)}
             reddit_error = f"API error: {e}"
         except Exception as e:
-            raw_openai = {"error": str(e)}
+            raw_response = {"error": str(e)}
             reddit_error = f"{type(e).__name__}: {e}"
 
-    # Parse response
-    reddit_items = openai_reddit.parse_reddit_response(raw_openai or {})
+        # Parse response
+        reddit_items = openai_reddit.parse_reddit_response(raw_response or {})
 
-    # Quick retry with simpler query if few results
-    if len(reddit_items) < 5 and not mock and not reddit_error:
-        core = openai_reddit._extract_core_subject(topic)
-        if core.lower() != topic.lower():
+        # Quick retry with simpler query if few results
+        if len(reddit_items) < 5 and not mock and not reddit_error:
+            core = openai_reddit._extract_core_subject(topic)
+            if core.lower() != topic.lower():
+                try:
+                    retry_raw = openai_reddit.search_reddit(
+                        config["OPENAI_API_KEY"],
+                        selected_models["openai"],
+                        core,
+                        from_date, to_date,
+                        depth=depth,
+                    )
+                    retry_items = openai_reddit.parse_reddit_response(retry_raw)
+                    # Add items not already found (by URL)
+                    existing_urls = {item.get("url") for item in reddit_items}
+                    for item in retry_items:
+                        if item.get("url") not in existing_urls:
+                            reddit_items.append(item)
+                except Exception:
+                    pass
+
+        # Subreddit-targeted fallback if still < 3 results
+        if len(reddit_items) < 3 and not mock and not reddit_error:
+            sub_query = openai_reddit._build_subreddit_query(topic)
             try:
-                retry_raw = openai_reddit.search_reddit(
+                sub_raw = openai_reddit.search_reddit(
                     config["OPENAI_API_KEY"],
                     selected_models["openai"],
-                    core,
+                    sub_query,
                     from_date, to_date,
                     depth=depth,
                 )
-                retry_items = openai_reddit.parse_reddit_response(retry_raw)
-                # Add items not already found (by URL)
+                sub_items = openai_reddit.parse_reddit_response(sub_raw)
                 existing_urls = {item.get("url") for item in reddit_items}
-                for item in retry_items:
+                for item in sub_items:
                     if item.get("url") not in existing_urls:
                         reddit_items.append(item)
             except Exception:
                 pass
 
-    # Subreddit-targeted fallback if still < 3 results
-    if len(reddit_items) < 3 and not mock and not reddit_error:
-        sub_query = openai_reddit._build_subreddit_query(topic)
-        try:
-            sub_raw = openai_reddit.search_reddit(
-                config["OPENAI_API_KEY"],
-                selected_models["openai"],
-                sub_query,
-                from_date, to_date,
-                depth=depth,
-            )
-            sub_items = openai_reddit.parse_reddit_response(sub_raw)
-            existing_urls = {item.get("url") for item in reddit_items}
-            for item in sub_items:
-                if item.get("url") not in existing_urls:
-                    reddit_items.append(item)
-        except Exception:
-            pass
-
-    return reddit_items, raw_openai, reddit_error
+    return reddit_items, raw_response, reddit_error, reddit_provider
 
 
 def _search_x(
@@ -340,18 +381,19 @@ def run_research(
     mock: bool = False,
     progress: ui.ProgressDisplay = None,
     x_source: str = "xai",
+    reddit_provider: str = "openai",
 ) -> tuple:
     """Run the research pipeline.
 
     Returns:
-        Tuple of (reddit_items, x_items, web_needed, raw_openai, raw_xai, raw_reddit_enriched, reddit_error, x_error)
+        Tuple of (reddit_items, x_items, web_needed, raw_reddit, raw_xai, raw_reddit_enriched, reddit_error, x_error, reddit_provider_used)
 
     Note: web_needed is True when WebSearch should be performed by Claude.
     The script outputs a marker and Claude handles WebSearch in its session.
     """
     reddit_items = []
     x_items = []
-    raw_openai = None
+    raw_reddit = None
     raw_xai = None
     raw_reddit_enriched = []
     reddit_error = None
@@ -365,7 +407,7 @@ def run_research(
         if progress:
             progress.start_web_only()
             progress.end_web_only()
-        return reddit_items, x_items, True, raw_openai, raw_xai, raw_reddit_enriched, reddit_error, x_error
+        return reddit_items, x_items, True, None, raw_xai, raw_reddit_enriched, reddit_error, x_error, reddit_provider
 
     # Determine which searches to run
     run_reddit = sources in ("both", "reddit", "all", "reddit-web")
@@ -382,7 +424,7 @@ def run_research(
                 progress.start_reddit()
             reddit_future = executor.submit(
                 _search_reddit, topic, config, selected_models,
-                from_date, to_date, depth, mock
+                from_date, to_date, depth, mock, reddit_provider
             )
 
         if run_x:
@@ -394,9 +436,11 @@ def run_research(
             )
 
         # Collect results
+        raw_reddit = None
+        reddit_provider_used = reddit_provider
         if reddit_future:
             try:
-                reddit_items, raw_openai, reddit_error = reddit_future.result()
+                reddit_items, raw_reddit, reddit_error, reddit_provider_used = reddit_future.result()
                 if reddit_error and progress:
                     progress.show_error(f"Reddit error: {reddit_error}")
             except Exception as e:
@@ -455,7 +499,7 @@ def run_research(
         if sup_x:
             x_items.extend(sup_x)
 
-    return reddit_items, x_items, web_needed, raw_openai, raw_xai, raw_reddit_enriched, reddit_error, x_error
+    return reddit_items, x_items, web_needed, raw_reddit, raw_xai, raw_reddit_enriched, reddit_error, x_error, reddit_provider_used
 
 
 def main():
@@ -471,15 +515,21 @@ def main():
     parser.add_argument("--mock", action="store_true", help="Use fixtures")
     parser.add_argument(
         "--emit",
-        choices=["compact", "json", "md", "context", "path"],
-        default="compact",
-        help="Output mode",
+        choices=["auto", "compact", "json", "md", "context", "path"],
+        default="auto",
+        help="Output mode (auto: JSON in Claude context, compact in terminal)",
     )
     parser.add_argument(
         "--sources",
         choices=["auto", "reddit", "x", "both"],
         default="auto",
         help="Source selection",
+    )
+    parser.add_argument(
+        "--reddit-provider",
+        choices=["auto", "openai", "openrouter"],
+        default="auto",
+        help="Reddit search provider (default: auto, prefers OpenRouter if available)",
     )
     parser.add_argument(
         "--quick",
@@ -618,8 +668,14 @@ def main():
     else:
         mode = sources
 
+    # Determine Reddit provider
+    if args.reddit_provider == 'auto':
+        reddit_provider = env.get_reddit_provider(config) or 'openai'
+    else:
+        reddit_provider = args.reddit_provider
+
     # Run research
-    reddit_items, x_items, web_needed, raw_openai, raw_xai, raw_reddit_enriched, reddit_error, x_error = run_research(
+    reddit_items, x_items, web_needed, raw_reddit, raw_xai, raw_reddit_enriched, reddit_error, x_error, reddit_provider_used = run_research(
         args.topic,
         sources,
         config,
@@ -630,6 +686,7 @@ def main():
         args.mock,
         progress,
         x_source=x_source or "xai",
+        reddit_provider=reddit_provider,
     )
 
     # Processing phase
@@ -672,7 +729,9 @@ def main():
         to_date,
         mode,
         selected_models.get("openai"),
+        selected_models.get("openrouter"),
         selected_models.get("xai"),
+        reddit_provider_used,
     )
     report.reddit = deduped_reddit
     report.x = deduped_x
@@ -683,7 +742,7 @@ def main():
     report.context_snippet_md = render.render_context_snippet(report)
 
     # Write outputs
-    render.write_outputs(report, raw_openai, raw_xai, raw_reddit_enriched)
+    render.write_outputs(report, raw_reddit, raw_xai, raw_reddit_enriched, reddit_provider_used)
 
     # Show completion
     if sources == "web":
@@ -691,8 +750,13 @@ def main():
     else:
         progress.show_complete(len(deduped_reddit), len(deduped_x))
 
+    # Determine output format (auto-detect if needed)
+    emit_mode = args.emit
+    if emit_mode == "auto":
+        emit_mode = env.get_output_format(config, None)
+
     # Output result
-    output_result(report, args.emit, web_needed, args.topic, from_date, to_date, missing_keys, args.days)
+    output_result(report, emit_mode, web_needed, args.topic, from_date, to_date, missing_keys, args.days)
 
 
 def output_result(

@@ -338,17 +338,19 @@ def render_full_report(report: schema.Report) -> str:
 
 def write_outputs(
     report: schema.Report,
-    raw_openai: Optional[dict] = None,
+    raw_reddit: Optional[dict] = None,
     raw_xai: Optional[dict] = None,
     raw_reddit_enriched: Optional[list] = None,
+    reddit_provider_used: str = "openai",
 ):
     """Write all output files.
 
     Args:
         report: Report data
-        raw_openai: Raw OpenAI API response
+        raw_reddit: Raw Reddit API response (from OpenAI or OpenRouter)
         raw_xai: Raw xAI API response
         raw_reddit_enriched: Raw enriched Reddit thread data
+        reddit_provider_used: Which provider was used ('openai' or 'openrouter')
     """
     ensure_output_dir()
 
@@ -365,9 +367,11 @@ def write_outputs(
         f.write(render_context_snippet(report))
 
     # Raw responses
-    if raw_openai:
-        with open(OUTPUT_DIR / "raw_openai.json", 'w') as f:
-            json.dump(raw_openai, f, indent=2)
+    if raw_reddit:
+        # Write to appropriate filename based on provider
+        raw_filename = f"raw_{reddit_provider_used}.json"
+        with open(OUTPUT_DIR / raw_filename, 'w') as f:
+            json.dump(raw_reddit, f, indent=2)
 
     if raw_xai:
         with open(OUTPUT_DIR / "raw_xai.json", 'w') as f:

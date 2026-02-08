@@ -178,7 +178,9 @@ class Report:
     generated_at: str
     mode: str  # 'reddit-only', 'x-only', 'both', 'web-only', etc.
     openai_model_used: Optional[str] = None
+    openrouter_model_used: Optional[str] = None
     xai_model_used: Optional[str] = None
+    reddit_provider_used: Optional[str] = None  # 'openai' or 'openrouter'
     reddit: List[RedditItem] = field(default_factory=list)
     x: List[XItem] = field(default_factory=list)
     web: List[WebSearchItem] = field(default_factory=list)
@@ -203,7 +205,9 @@ class Report:
             'generated_at': self.generated_at,
             'mode': self.mode,
             'openai_model_used': self.openai_model_used,
+            'openrouter_model_used': self.openrouter_model_used,
             'xai_model_used': self.xai_model_used,
+            'reddit_provider_used': self.reddit_provider_used,
             'reddit': [r.to_dict() for r in self.reddit],
             'x': [x.to_dict() for x in self.x],
             'web': [w.to_dict() for w in self.web],
@@ -301,7 +305,9 @@ class Report:
             generated_at=data['generated_at'],
             mode=data['mode'],
             openai_model_used=data.get('openai_model_used'),
+            openrouter_model_used=data.get('openrouter_model_used'),
             xai_model_used=data.get('xai_model_used'),
+            reddit_provider_used=data.get('reddit_provider_used'),
             reddit=reddit_items,
             x=x_items,
             web=web_items,
@@ -322,7 +328,9 @@ def create_report(
     to_date: str,
     mode: str,
     openai_model: Optional[str] = None,
+    openrouter_model: Optional[str] = None,
     xai_model: Optional[str] = None,
+    reddit_provider: Optional[str] = None,
 ) -> Report:
     """Create a new report with metadata."""
     return Report(
@@ -332,5 +340,7 @@ def create_report(
         generated_at=datetime.now(timezone.utc).isoformat(),
         mode=mode,
         openai_model_used=openai_model,
+        openrouter_model_used=openrouter_model,
         xai_model_used=xai_model,
+        reddit_provider_used=reddit_provider,
     )
